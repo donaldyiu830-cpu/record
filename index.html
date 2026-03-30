@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專業校園與遊學點名系統</title>
+    <style>
+        :root {
+            --primary: #4f46e5; --primary-hover: #4338ca;
+            --bg-color: #f3f4f6; --card-bg: #ffffff; --text-main: #1f2937;
+            --present: #dcfce7; --present-text: #166534;
+            --absent: #fee2e2; --absent-text: #991b1b;
+            --late: #fef08a; --late-text: #854d0e;
+            --excused: #e5e7eb; --excused-text: #374151;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-main); padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        h2 { text-align: center; color: var(--primary); margin-top: 0; font-size: 24px; }
+        
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+        .tab-btn { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: none; border: none; font-size: 16px; font-weight: bold; color: #6b7280; transition: 0.3s; }
+        .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); margin-bottom: -2px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
+        input[type="date"], input[type="text"], select { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
+        input[type="date"]:focus, input[type="text"]:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+        
+        button.primary-btn { width: 100%; padding: 14px; background-color: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
+        button.primary-btn:hover { background-color: var(--primary-hover); }
+        button.primary-btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 15px;}
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { color: #6b7280; font-weight: 600; font-size: 14px; }
+        
+        .status-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .status-options label { margin: 0; cursor: pointer; padding: 6px 10px; border-radius: 6px; font-size: 14px; background: #f3f4f6; color: #4b5563; border: 1px solid transparent; transition: 0.2s; font-weight: normal; }
+        .status-options input[type="radio"] { display: none; }
+        
+        .status-options input[value="出席"]:checked + label { background: var(--present); color: var(--present-text); border-color: #bbf7d0; font-weight: bold; }
+        .status-options input[value="缺席"]:checked + label { background: var(--absent); color: var(--absent-text); border-color: #fecaca; font-weight: bold; }
+        .status-options input[value="遲到"]:checked + label { background: var(--late); color: var(--late-text); border-color: #fef08a; font-weight: bold; }
+        .status-options input[value="豁免"]:checked + label { background: var(--excused); color: var(--excused-text); border-color: #d1d5db; font-weight: bold; }
+
+        .badge { padding: 4px 8px; border-radius: 9999px; font-size: 13px; font-weight: bold; display: inline-block; text-align: center;}
+        .badge.出席 { background: var(--present); color: var(--present-text); }
+        .badge.缺席 { background: var(--absent); color: var(--absent-text); }
+        .badge.遲到 { background: var(--late); color: var(--late-text); }
+        .badge.豁免 { background: var(--excused); color: var(--excused-text); }
+
+        .message { margin-top: 15px; text-align: center; font-weight: bold; font-size: 15px; min-height: 20px;}
+        .loading { text-align: center; color: var(--primary); font-weight: bold; padding: 20px 0; }
+        
+        .location-group { margin-top: 25px; border: 2px solid var(--primary); border-radius: 10px; padding: 15px; background: #fafafa; overflow: hidden;}
+        .location-group h3 { margin: -15px -15px 15px -15px; background: var(--primary); color: white; padding: 12px 15px; font-size: 18px; }
+        .class-group { margin-top: 15px; background: #ffffff; border-radius: 8px; padding: 10px; border: 1px solid #e5e7eb;}
+        .class-group h4 { margin: 0 0 10px 0; color: #374151; font-size: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px;}
+
+        /* 讓三個查詢條件並排 (電腦版視覺優化) */
+        .search-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+        @media (max-width: 500px) { .search-grid { grid-template-columns: 1fr; gap: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎒 校園與遊學點名系統</h2>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('attendanceTab')">📝 點名作業</button>
+        <button class="tab-btn" onclick="switchTab('recordsTab')">📊 檢視紀錄</button>
+    </div>
+
+    <div id="loadingMsg" class="loading">正在連線載入資料庫...</div>
+
+    <div id="attendanceTab" class="tab-content active" style="display: none;">
+        <form id="attendanceForm">
+            <div class="form-group">
+                <label>📅 點名日期</label>
+                <input type="date" id="date" required>
+            </div>
+            
+            <div class="form-group">
+                <label>📍 點名地點/景點 (例如：大英博物館)</label>
+                <input type="text" id="location" list="pastLocations" placeholder="請輸入地點 (非必填，預設為一般點名)">
+                <datalist id="pastLocations"></datalist>
+            </div>
+
+            <div class="form-group">
+                <label>🏷️ 選擇班別</label>
+                <select id="classSelect" required>
+                    <option value="">-- 請選擇班別 --</option>
+                </select>
+            </div>
+            <div id="studentListContainer"></div>
+            <button type="submit" id="submitBtn" class="primary-btn" style="display:none; margin-top: 20px;">送出全班點名紀錄</button>
+        </form>
+        <div id="message1" class="message"></div>
+    </div>
+
+    <div id="recordsTab" class="tab-content">
+        <div class="search-grid">
+            <div class="form-group">
+                <label>🔍 查詢日期</label>
+                <input type="date" id="searchDate" required>
+            </div>
+            <div class="form-group">
+                <label>🏷️ 查詢班別</label>
+                <select id="searchClass">
+                    <option value="">-- 所有班別 --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📍 查詢地點</label>
+                <select id="searchLocation">
+                    <option value="">-- 所有地點 --</option>
+                </select>
+            </div>
+        </div>
+        
+        <button onclick="fetchRecords()" id="searchBtn" class="primary-btn">查詢紀錄</button>
+        
+        <div id="recordsContainer" style="margin-top: 20px;"></div>
+        <div id="message2" class="message"></div>
+    </div>
+</div>
+
+<script>
+    // 【重要】請替換成你最新的 Google Apps Script 部署網址
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbzRvJ6XAzIgDHVTK5b6C_4lc1H5Aozv1QPsryHZI5W2LUfj8q4Rgyz2Xk8wJ2HZPD2eZQ/exec'; 
+    
+    let allStudents = []; 
+
+    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('searchDate').valueAsDate = new Date();
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.style.display = 'none';
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        document.getElementById(tabId).style.display = 'block';
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // 網頁載入時，接收新的資料結構 (包含學生名單與歷史地點)
+    window.onload = function() {
+        fetch(scriptURL)
+            .then(response => response.json())
+            .then(data => {
+                // data.students 包含學生名單，data.locations 包含歷史地點
+                allStudents = data.students; 
+                const classes = [...new Set(allStudents.map(s => s.className))];
+                
+                const classSelect = document.getElementById('classSelect');
+                const searchClass = document.getElementById('searchClass');
+                const searchLocation = document.getElementById('searchLocation');
+                const pastLocationsList = document.getElementById('pastLocations');
+                
+                // 填入班級選單
+                classes.forEach(c => {
+                    let option1 = document.createElement('option'); option1.value = c; option1.text = c;
+                    classSelect.appendChild(option1);
+                    
+                    let option2 = document.createElement('option'); option2.value = c; option2.text = c;
+                    searchClass.appendChild(option2);
+                });
+
+                // 填入地點選單與自動建議清單
+                if (data.locations && data.locations.length > 0) {
+                    data.locations.forEach(loc => {
+                        // 加入「查詢」分頁的地點下拉選單
+                        let optSearch = document.createElement('option');
+                        optSearch.value = loc; optSearch.text = loc;
+                        searchLocation.appendChild(optSearch);
+
+                        // 加入「點名」分頁的輸入框自動建議
+                        let optSuggest = document.createElement('option');
+                        optSuggest.value = loc;
+                        pastLocationsList.appendChild(optSuggest);
+                    });
+                }
+                
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('attendanceTab').style.display = 'block';
+            })
+            .catch(error => {
+                document.getElementById('loadingMsg').innerText = "❌ 載入失敗，請檢查網址或網路。";
+                document.getElementById('loadingMsg').style.color = "red";
+                console.error(error);
+            });
+    };
+
+    // 動態產生點名名單
+    document.getElementById('classSelect').addEventListener('change', function() {
+        const selectedClass = this.value;
+        const container = document.getElementById('studentListContainer');
+        const submitBtn = document.getElementById('submitBtn');
+        document.getElementById('message1').innerText = '';
+
+        if (!selectedClass) {
+            container.innerHTML = ''; submitBtn.style.display = 'none'; return;
+        }
+
+        const classStudents = allStudents.filter(s => s.className === selectedClass);
+        
+        let html = `<table><thead><tr><th>學號/姓名</th><th>狀態</th></tr></thead><tbody>`;
+        classStudents.forEach(student => {
+            html += `
+                <tr>
+                    <td><div style="font-weight:600; color:#374151;">${student.id}</div><div style="font-size:13px; color:#6b7280;">${student.name}</div></td>
+                    <td>
+                        <div class="status-options">
+                            <input type="radio" id="p_${student.id}" name="status_${student.id}" value="出席" checked>
+                            <label for="p_${student.id}">出席</label>
+                            
+                            <input type="radio" id="l_${student.id}" name="status_${student.id}" value="遲到">
+                            <label for="l_${student.id}">遲到</label>
+                            
+                            <input type="radio" id="a_${student.id}" name="status_${student.id}" value="缺席">
+                            <label for="a_${student.id}">缺席</label>
+                            
+                            <input type="radio" id="e_${student.id}" name="status_${student.id}" value="豁免">
+                            <label for="e_${student.id}">豁免</label>
+                        </div>
+                    </td>
+                </tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+        submitBtn.style.display = 'block';
+    });
+
+    // 提交點名紀錄
+    document.getElementById('attendanceForm').addEventListener('submit', e => {
+        e.preventDefault(); 
+        const selectedClass = document.getElementById('classSelect').value;
+        const selectedDate = document.getElementById('date').value;
+        const inputLocation = document.getElementById('location').value.trim() || "一般點名"; 
+        const classStudents = allStudents.filter(s => s.className === selectedClass);
+        const submitBtn = document.getElementById('submitBtn');
+        const msg = document.getElementById('message1');
+        
+        let records = classStudents.map(student => ({
+            id: student.id, name: student.name,
+            status: document.querySelector(`input[name="status_${student.id}"]:checked`).value
+        }));
+
+        let formData = new FormData();
+        formData.append('payload', JSON.stringify({ 
+            date: selectedDate, 
+            location: inputLocation, 
+            className: selectedClass, 
+            records: records 
+        }));
+
+        submitBtn.disabled = true; submitBtn.innerText = "🚀 傳送資料中..."; msg.innerText = "";
+
+        fetch(scriptURL, { method: 'POST', body: formData })
+            .then(response => {
+                msg.innerHTML = `<span style="color:#166534;">✅ ${inputLocation} - ${selectedClass} 班紀錄已送出！</span>`;
+                document.getElementById('classSelect').value = "";
+                document.getElementById('studentListContainer').innerHTML = "";
+                submitBtn.style.display = "none"; submitBtn.disabled = false; submitBtn.innerText = "送出全班點名紀錄";
+            })
+            .catch(error => {
+                msg.innerHTML = `<span style="color:#991b1b;">❌ 傳送失敗，請重試。</span>`;
+                submitBtn.disabled = false; submitBtn.innerText = "送出全班點名紀錄";
+            });
+    });
+
+    // 查詢紀錄 (結合 日期 + 班級 + 地點 的多重篩選)
+    function fetchRecords() {
+        const searchDate = document.getElementById('searchDate').value;
+        const searchClass = document.getElementById('searchClass').value; 
+        const searchLocation = document.getElementById('searchLocation').value; // 新增的地點條件
+        const searchBtn = document.getElementById('searchBtn');
+        const container = document.getElementById('recordsContainer');
+        const msg = document.getElementById('message2');
+        
+        if(!searchDate) return;
+
+        searchBtn.disabled = true; searchBtn.innerText = "🔍 查詢中...";
+        container.innerHTML = ''; msg.innerText = '';
+
+        fetch(`${scriptURL}?action=getRecords&date=${searchDate}`)
+            .then(response => response.json())
+            .then(data => {
+                searchBtn.disabled = false; searchBtn.innerText = "查詢紀錄";
+                
+                let filteredData = data;
+                
+                // 1. 如果有選班級，過濾班級
+                if (searchClass !== "") {
+                    filteredData = filteredData.filter(rec => rec.className === searchClass);
+                }
+                
+                // 2. 如果有選地點，過濾地點
+                if (searchLocation !== "") {
+                    filteredData = filteredData.filter(rec => rec.location === searchLocation);
+                }
+                
+                if (filteredData.length === 0) {
+                    msg.innerHTML = `<span style="color:#6b7280;">📭 找不到符合條件的點名紀錄。</span>`;
+                    return;
+                }
+
+                // 將資料先按「地點」分組，再按「班別」分組顯示
+                const groupedData = filteredData.reduce((acc, curr) => {
+                    const loc = curr.location;
+                    if (!acc[loc]) acc[loc] = {};
+                    if (!acc[loc][curr.className]) acc[loc][curr.className] = [];
+                    acc[loc][curr.className].push(curr);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const loc in groupedData) {
+                    html += `<div class="location-group">
+                                <h3>📍 地點：${loc}</h3>`;
+                    
+                    for (const className in groupedData[loc]) {
+                        html += `<div class="class-group">
+                                    <h4>🏷️ ${className} 班</h4>
+                                    <table>
+                                        <thead><tr><th width="30%">學號</th><th width="40%">姓名</th><th>狀態</th></tr></thead>
+                                        <tbody>`;
+                        groupedData[loc][className].forEach(rec => {
+                            html += `<tr>
+                                        <td>${rec.id}</td>
+                                        <td>${rec.name}</td>
+                                        <td><span class="badge ${rec.status}">${rec.status}</span></td>
+                                     </tr>`;
+                        });
+                        html += `</tbody></table></div>`;
+                    }
+                    html += `</div>`;
+                }
+                container.innerHTML = html;
+            })
+            .catch(error => {
+                searchBtn.disabled = false; searchBtn.innerText = "查詢紀錄";
+                msg.innerHTML = `<span style="color:#991b1b;">❌ 查詢失敗，請檢查網路狀態。</span>`;
+            });
+    }
+</script>
+
+</body>
+</html>
